@@ -1,6 +1,7 @@
 "use client";
 
 import ProjectTheme1 from './theme-1';
+import ProjectTheme2 from './theme-2';
 import { TemplateSwitcher } from "../../../components/layout/template-switcher";
 import { useState } from "react";
 
@@ -17,9 +18,9 @@ export default function ProjectPage() {
     switch (activeTheme) {
       case "theme-1":
         return <ProjectTheme1 />;
+      case "theme-2":
+        return <ProjectTheme2 />;
       // Add other themes when they become available
-      // case "theme-2":
-      //   return <ProjectTheme2 />;
       // case "theme-3":
       //   return <ProjectTheme3 />;
       // ...
