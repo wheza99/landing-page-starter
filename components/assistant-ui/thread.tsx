@@ -5,7 +5,8 @@ import {
   MessagePrimitive,
   ThreadPrimitive,
 } from "@assistant-ui/react";
-import type { FC } from "react";
+import * as React from "react";
+import type { FC, RefObject } from "react";
 import {
   ArrowDownIcon,
   CheckIcon,
@@ -201,20 +202,87 @@ const EditComposer: FC = () => {
 };
 
 const AssistantMessage: FC = () => {
+  // Create a ref to store the message content element
+  const messageContentRef = React.useRef<HTMLDivElement>(null);
+  
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
-      <div className="text-foreground max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5">
+      <div 
+        ref={messageContentRef}
+        className="text-foreground max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5"
+      >
         <MessagePrimitive.Content components={{ Text: MarkdownText }} />
       </div>
 
-      <AssistantActionBar />
+      <AssistantActionBar messageContentRef={messageContentRef} />
 
       <BranchPicker className="col-start-2 row-start-2 -ml-2 mr-2" />
     </MessagePrimitive.Root>
   );
 };
 
-const AssistantActionBar: FC = () => {
+interface AssistantActionBarProps {
+  messageContentRef: RefObject<HTMLDivElement | null>;
+}
+
+const AssistantActionBar: FC<AssistantActionBarProps> = ({ messageContentRef }) => {
+  // State to track if copy was successful
+  const [copied, setCopied] = React.useState(false);
+
+  // Effect to reset copied state after 2 seconds
+  React.useEffect(() => {
+    if (copied) {
+      const timer = setTimeout(() => setCopied(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [copied]);
+
+  // Function to handle copy
+  const handleCopy = React.useCallback(() => {
+    if (messageContentRef.current) {
+      const textContent = messageContentRef.current.textContent || '';
+      const cleanedText = textContent.trim();
+      
+      if (cleanedText && typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(cleanedText)
+          .then(() => {
+            setCopied(true);
+            console.log('Text copied to clipboard');
+          })
+          .catch(err => {
+            console.error('Failed to copy text: ', err);
+            // Fallback for browsers that don't support clipboard API
+            copyTextFallback(cleanedText);
+          });
+      } else {
+        // Fallback for browsers that don't support clipboard API
+        copyTextFallback(cleanedText);
+      }
+    }
+  }, [messageContentRef]);
+
+  // Fallback copy method using document.execCommand
+  const copyTextFallback = (text: string) => {
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (successful) {
+        setCopied(true);
+        console.log('Text copied to clipboard using fallback');
+      }
+    } catch (err) {
+      console.error('Fallback copy failed: ', err);
+    }
+  };
+
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
@@ -222,16 +290,12 @@ const AssistantActionBar: FC = () => {
       autohideFloat="single-branch"
       className="text-muted-foreground flex gap-1 col-start-3 row-start-2 -ml-1 data-[floating]:bg-background data-[floating]:absolute data-[floating]:rounded-md data-[floating]:border data-[floating]:p-1 data-[floating]:shadow-sm"
     >
-      <ActionBarPrimitive.Copy asChild>
-        <TooltipIconButton tooltip="Copy">
-          <MessagePrimitive.If copied>
-            <CheckIcon />
-          </MessagePrimitive.If>
-          <MessagePrimitive.If copied={false}>
-            <CopyIcon />
-          </MessagePrimitive.If>
-        </TooltipIconButton>
-      </ActionBarPrimitive.Copy>
+      <TooltipIconButton 
+        tooltip="Copy" 
+        onClick={handleCopy}
+      >
+        {copied ? <CheckIcon /> : <CopyIcon />}
+      </TooltipIconButton>
       <ActionBarPrimitive.Reload asChild>
         <TooltipIconButton tooltip="Refresh">
           <RefreshCwIcon />
